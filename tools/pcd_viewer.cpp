@@ -145,6 +145,8 @@ printHelp (int, char **argv)
   print_info ("\n");
 
   print_info ("\n(Note: for multiple .pcd files, provide multiple -{fc,ps,opaque,position,orientation} parameters; they will be automatically assigned to the right file)\n");
+  print_info ("\n(Note: add .png file to take a screenshot and exit.\n");
+  print_info ("\n(Note: add .bbox.txt to draw bboxes.\n");
 }
 
 // Global visualizer object
@@ -212,6 +214,81 @@ pp_callback (const pcl::visualization::PointPickingEvent& event, void* cookie)
   
 }
 
+
+void draw_bboxes(pcl::visualization::PCLVisualizer::Ptr p, const char* bbox_f){
+  std::string line;
+  std::ifstream fs(bbox_f);
+
+  if (!fs.is_open()){
+    print_info("%s not opened.\n", bbox_f);
+    return;
+  }
+
+  int box_id = 0;
+
+  while ((!fs.eof ())){
+
+    std::getline(fs, line);
+    if (line == "")
+      break;
+
+    // Tokenize the line
+    boost::trim (line);
+
+    std::stringstream sstream (line);
+    sstream.imbue (std::locale::classic ());
+
+    float vex[8][3];
+    
+    for (int vi = 0; vi < 8; ++vi)
+    {
+      for (int vj = 0; vj < 3; ++vj){
+
+        sstream >> vex[vi][vj];
+        //printf("%f ", vex[vi][vj]);
+      }
+      //printf("\n");
+      
+    }
+    // Adjust the offset for count (number of elements)
+    
+    pcl::PointXYZ p1(vex[0][0], vex[0][1], vex[0][2]),
+                p2(vex[1][0], vex[1][1], vex[1][2]),
+                p3(vex[2][0], vex[2][1], vex[2][2]),
+                p4(vex[3][0], vex[3][1], vex[3][2]),
+                p5(vex[4][0], vex[4][1], vex[4][2]),
+                p6(vex[5][0], vex[5][1], vex[5][2]),
+                p7(vex[6][0], vex[6][1], vex[6][2]),
+                p8(vex[7][0], vex[7][1], vex[7][2]);
+
+    std::string bid;
+    std::stringstream ss(bid);
+    ss<<box_id;
+
+    p->addLine(p1, p2, 1.0, 0, 0, ss.str()+"0");
+    p->addLine(p2, p3, 1.0, 0, 0, ss.str()+"1");
+    p->addLine(p3, p4, 1.0, 0, 0, ss.str()+"2");
+    p->addLine(p4, p1, 1.0, 0, 0, ss.str()+"3");
+
+    p->addLine(p1, p5, 1.0, 0, 0, ss.str()+"4");
+    p->addLine(p2, p6, 1.0, 0, 0, ss.str()+"5");
+    p->addLine(p3, p7, 1.0, 0, 0, ss.str()+"6");
+    p->addLine(p4, p8, 1.0, 0, 0, ss.str()+"7");
+
+    p->addLine(p5, p6, 1.0, 0, 0, ss.str()+"9");
+    p->addLine(p6, p7, 1.0, 0, 0, ss.str()+"10");
+    p->addLine(p7, p8, 1.0, 0, 0, ss.str()+"11");
+    p->addLine(p8, p5, 1.0, 0, 0, ss.str()+"12");
+    
+
+    box_id++;
+    //printf("one box drawn");
+
+  }
+
+  fs.close();
+}
+
 /* ---[ */
 int
 main (int argc, char** argv)
@@ -234,6 +311,8 @@ main (int argc, char** argv)
   // Parse the command line arguments for .pcd files
   std::vector<int> p_file_indices   = pcl::console::parse_file_extension_argument (argc, argv, ".pcd");
   std::vector<int> vtk_file_indices = pcl::console::parse_file_extension_argument (argc, argv, ".vtk");
+  std::vector<int> png_screeshot_file_indices = pcl::console::parse_file_extension_argument (argc, argv, ".png");
+  std::vector<int> txt_bbox_file_indices = pcl::console::parse_file_extension_argument (argc, argv, ".bbox.txt");
 
   if (p_file_indices.empty () && vtk_file_indices.empty ())
   {
@@ -753,8 +832,23 @@ main (int argc, char** argv)
         ph->spin ();
     }
     else
-      if (p)
-        p->spin ();
+      if (p){
+  
+        if (txt_bbox_file_indices.size() > 0){
+          char* bbox_f = argv[txt_bbox_file_indices[0]];
+          draw_bboxes(p, bbox_f);
+          p->spinOnce();
+        }
+
+        if (png_screeshot_file_indices.size()>0){
+          p->saveScreenshot(argv[png_screeshot_file_indices[0]]);
+          //p->spin();
+          p->spinOnce();
+        }
+        else{
+          p->spin ();
+        }
+      }
   }
 }
 /* ]--- */
